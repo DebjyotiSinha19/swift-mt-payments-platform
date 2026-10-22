@@ -1,0 +1,90 @@
+trigger:
+  branches:
+    include: [main]
+
+pr:
+  branches:
+    include: [main]
+
+parameters:
+  - name: deployDemo
+    displayName: Request the protected demo deployment placeholder
+    type: boolean
+    default: false
+
+variables:
+  pythonVersion: "3.12"
+  terraformVersion: "1.10.5"
+
+stages:
+  - stage: Validate
+    displayName: Lint, unit tests, and Terraform validation
+    jobs:
+      - job: quality
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(pythonVersion)
+          - script: python -m pip install -r requirements-dev.txt
+            displayName: Install Python dependencies
+          - script: ruff check . && ruff format --check .
+            displayName: Lint and format check
+          - script: PYTHONPATH=services/payments:services/screening:services/ledger pytest -q
+            displayName: Run unit tests
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: $(terraformVersion)
+          - script: terraform fmt -check -recursive infra/terraform
+            displayName: Terraform format check
+          - script: |
+              terraform -chdir=infra/terraform init -backend=false
+              terraform -chdir=infra/terraform validate
+            displayName: Terraform validate (no cloud changes)
+
+  - stage: ContainerBuildAndScan
+    displayName: Build and scan containers
+    dependsOn: Validate
+    jobs:
+      - job: containers
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: |
+              docker build -f services/payments/Dockerfile -t payments-api:$(Build.SourceVersion) .
+              docker build -f services/screening/Dockerfile -t screening-api:$(Build.SourceVersion) .
+              docker build -f services/ledger/Dockerfile -t ledger-api:$(Build.SourceVersion) .
+              docker build -f web/Dockerfile -t payments-console:$(Build.SourceVersion) .
+            displayName: Build demo images (no push)
+          - script: |
+              docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                aquasec/trivy:0.58.2 image --exit-code 1 --ignore-unfixed \
+                --severity HIGH,CRITICAL payments-api:$(Build.SourceVersion)
+              docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                aquasec/trivy:0.58.2 image --exit-code 1 --ignore-unfixed \
+                --severity HIGH,CRITICAL screening-api:$(Build.SourceVersion)
+              docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                aquasec/trivy:0.58.2 image --exit-code 1 --ignore-unfixed \
+                --severity HIGH,CRITICAL ledger-api:$(Build.SourceVersion)
+              docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                aquasec/trivy:0.58.2 image --exit-code 1 --ignore-unfixed \
+                --severity HIGH,CRITICAL payments-console:$(Build.SourceVersion)
+            displayName: Scan demo images with Trivy
+
+  - stage: DeployDemoPlaceholder
+    displayName: Protected deployment placeholder (no rollout)
+    dependsOn: ContainerBuildAndScan
+    condition: and(succeeded(), eq('${{ parameters.deployDemo }}', 'true'))
+    jobs:
+      - deployment: gatedPlaceholder
+        displayName: Wait for environment approval, then no-op
+        environment: payments-demo
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: |
+                    echo "Approval gate completed. No Azure or Kubernetes changes were made."
+                    echo "Replace only with a reviewed deployment and approved service connection."
+                  displayName: Safe no-op placeholder
