@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" ng-app="paymentsDemo">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payments Control Room — Demo</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+  <script src="app.js"></script>
+</head>
+<body ng-controller="PaymentsController as vm">
+  <header><span class="eyebrow">SIMULATION ENVIRONMENT</span><h1>Payments Control Room</h1>
+    <p>SWIFT MT preview workflow · synthetic records only</p></header>
+  <main>
+    <section class="notice" role="note"><strong>Demo only:</strong> no payments are sent, screened, or settled.</section>
+    <section class="summary"><div><span>Preview records</span><strong>{{vm.payments.length}}</strong></div>
+      <div><span>Awaiting manual review</span><strong>{{vm.reviewCount}}</strong></div>
+      <div><span>Today's amount</span><strong>€0.00</strong></div></section>
+    <section class="panel"><div class="panel-heading"><div><h2>Payment previews</h2><p>Fabricated references; no live identifiers</p></div>
+      <button ng-click="vm.refresh()">Refresh sample</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Reference</th><th>Amount</th><th>Destination</th><th>State</th></tr></thead>
+        <tbody><tr ng-repeat="payment in vm.payments"><td>{{payment.reference}}</td><td>{{payment.amount}}</td>
+          <td>{{payment.country}}</td><td><span class="pill">{{payment.state}}</span></td></tr></tbody>
+      </table></div></section>
+    <section class="panel"><h2>Pipeline flow</h2><div class="flow"><span>Payments API</span><b>→</b><span>Screening stub</span><b>→</b><span>Ledger stub</span></div>
+      <p class="muted">Each service is a separate container. The demo UI uses local in-memory samples.</p></section>
+  </main>
+  <footer>Reference project · Never use real payment or customer data</footer>
+</body></html>
