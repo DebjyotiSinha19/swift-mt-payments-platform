@@ -1,0 +1,155 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments-demo
+  labels:
+    app.kubernetes.io/part-of: swift-payments-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-api
+  namespace: payments-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: payments-api }
+  template:
+    metadata:
+      labels: { app: payments-api }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: api
+          image: replace-with-registry/payments-api:demo
+          ports: [{ name: http, containerPort: 8000 }]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          readinessProbe: { httpGet: { path: /health, port: http } }
+          livenessProbe: { httpGet: { path: /health, port: http } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payments-api
+  namespace: payments-demo
+spec:
+  type: ClusterIP
+  selector: { app: payments-api }
+  ports: [{ name: http, port: 80, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: screening-api
+  namespace: payments-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: screening-api }
+  template:
+    metadata:
+      labels: { app: screening-api }
+    spec:
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: api
+          image: replace-with-registry/screening-api:demo
+          ports: [{ name: http, containerPort: 8000 }]
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          readinessProbe: { httpGet: { path: /health, port: http } }
+          livenessProbe: { httpGet: { path: /health, port: http } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: screening-api
+  namespace: payments-demo
+spec:
+  type: ClusterIP
+  selector: { app: screening-api }
+  ports: [{ name: http, port: 80, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-api
+  namespace: payments-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: ledger-api }
+  template:
+    metadata:
+      labels: { app: ledger-api }
+    spec:
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: api
+          image: replace-with-registry/ledger-api:demo
+          ports: [{ name: http, containerPort: 8000 }]
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          readinessProbe: { httpGet: { path: /health, port: http } }
+          livenessProbe: { httpGet: { path: /health, port: http } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ledger-api
+  namespace: payments-demo
+spec:
+  type: ClusterIP
+  selector: { app: ledger-api }
+  ports: [{ name: http, port: 80, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-console
+  namespace: payments-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: payments-console }
+  template:
+    metadata:
+      labels: { app: payments-console }
+    spec:
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: ui
+          image: replace-with-registry/payments-console:demo
+          ports: [{ name: http, containerPort: 8080 }]
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: false, capabilities: { drop: [ALL] } }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 250m, memory: 128Mi }
+          readinessProbe: { httpGet: { path: /, port: http } }
+          livenessProbe: { httpGet: { path: /, port: http } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payments-console
+  namespace: payments-demo
+spec:
+  type: ClusterIP
+  selector: { app: payments-console }
+  ports: [{ name: http, port: 80, targetPort: http }]
